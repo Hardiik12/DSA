@@ -6,7 +6,7 @@ public class LinearSearchRecursion {
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
 
-        int a[] = new int[5];
+        int[] a = new int[5];
 
         System.out.println("Enter key:");
         int key = sc.nextInt();
@@ -24,7 +24,7 @@ public class LinearSearchRecursion {
         }
         sc.close();
     }
-    static int linearSearch(int arr[], int key, int index) {
+    static int linearSearch(int[] arr, int key, int index) {
 
         if (index == arr.length) {
             return -1;
