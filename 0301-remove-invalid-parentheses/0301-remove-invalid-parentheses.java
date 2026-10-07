@@ -1,85 +1,78 @@
+import java.util.*;
+
 class Solution {
     public List<String> removeInvalidParentheses(String s) {
-        // Count misplaced parentheses
+        char[] arr = s.toCharArray();
+        int n = arr.length;
+
+        // Count minimum removals needed
         int leftRem = 0, rightRem = 0;
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            if (c == '(') {
-                leftRem++;
-            } else if (c == ')') {
-                if (leftRem > 0) leftRem--;
+        int open = 0;
+        for (char c : arr) {
+            if (c == '(') open++;
+            else if (c == ')') {
+                if (open > 0) open--;
                 else rightRem++;
             }
         }
-        // Now leftRem is number of unmatched '(' that need removal? Wait, let's re-evaluate.
-        // Standard counting:
-        // Scan left to right: count open. If ')', if open>0 open--, else invalidRight++.
-        // Scan right to left: count close. If '(', if close>0 close--, else invalidLeft++.
-        // Let's do that properly.
-        int invalidLeft = 0, invalidRight = 0;
-        int open = 0;
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            if (c == '(') {
-                open++;
-            } else if (c == ')') {
-                if (open > 0) open--;
-                else invalidRight++;
-            }
-        }
         int close = 0;
-        for (int i = s.length() - 1; i >= 0; i--) {
-            char c = s.charAt(i);
-            if (c == ')') {
-                close++;
-            } else if (c == '(') {
+        for (int i = n - 1; i >= 0; i--) {
+            char c = arr[i];
+            if (c == ')') close++;
+            else if (c == '(') {
                 if (close > 0) close--;
-                else invalidLeft++;
+                else leftRem++;
             }
         }
-        // invalidLeft = number of '(' to remove
-        // invalidRight = number of ')' to remove
 
-        Set<String> result = new HashSet<>();
-        dfs(s, 0, 0, invalidLeft, invalidRight, new StringBuilder(), result);
-        return new ArrayList<>(result);
+        List<String> result = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        char[] buf = new char[n];
+
+        dfs(arr, 0, 0, leftRem, rightRem, buf, 0, result, seen);
+        return result;
     }
 
-    private void dfs(String s, int index, int open, int leftRem, int rightRem, StringBuilder sb, Set<String> result) {
-        if (index == s.length()) {
+    private void dfs(char[] arr, int idx, int open, int leftRem, int rightRem,
+                     char[] buf, int len, List<String> result, Set<String> seen) {
+        // Pruning: not enough remaining characters to close all open parentheses
+        int remaining = arr.length - idx;
+        if (open > remaining) return;
+        // Pruning: cannot remove more characters than remaining
+        if (leftRem + rightRem > remaining) return;
+
+        if (idx == arr.length) {
             if (open == 0 && leftRem == 0 && rightRem == 0) {
-                result.add(sb.toString());
+                String str = new String(buf, 0, len);
+                if (seen.add(str)) result.add(str);
             }
             return;
         }
 
-        char c = s.charAt(index);
+        char c = arr[idx];
 
         if (c == '(') {
-            // Option 1: remove it if we still need to remove left parentheses
+            // Remove this '('
             if (leftRem > 0) {
-                dfs(s, index + 1, open, leftRem - 1, rightRem, sb, result);
+                dfs(arr, idx + 1, open, leftRem - 1, rightRem, buf, len, result, seen);
             }
-            // Option 2: keep it
-            sb.append(c);
-            dfs(s, index + 1, open + 1, leftRem, rightRem, sb, result);
-            sb.setLength(sb.length() - 1);
+            // Keep this '('
+            buf[len] = c;
+            dfs(arr, idx + 1, open + 1, leftRem, rightRem, buf, len + 1, result, seen);
         } else if (c == ')') {
-            // Option 1: remove it if we still need to remove right parentheses
+            // Remove this ')'
             if (rightRem > 0) {
-                dfs(s, index + 1, open, leftRem, rightRem - 1, sb, result);
+                dfs(arr, idx + 1, open, leftRem, rightRem - 1, buf, len, result, seen);
             }
-            // Option 2: keep it, but only if it doesn't make balance negative
+            // Keep this ')' only if it can be matched
             if (open > 0) {
-                sb.append(c);
-                dfs(s, index + 1, open - 1, leftRem, rightRem, sb, result);
-                sb.setLength(sb.length() - 1);
+                buf[len] = c;
+                dfs(arr, idx + 1, open - 1, leftRem, rightRem, buf, len + 1, result, seen);
             }
         } else {
-            // Letter: always keep
-            sb.append(c);
-            dfs(s, index + 1, open, leftRem, rightRem, sb, result);
-            sb.setLength(sb.length() - 1);
+            // Always keep letters
+            buf[len] = c;
+            dfs(arr, idx + 1, open, leftRem, rightRem, buf, len + 1, result, seen);
         }
     }
 }
