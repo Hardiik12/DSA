@@ -1,92 +1,52 @@
 class Solution {
+    private int ans = Integer.MAX_VALUE;
+    private int n;
+    private boolean[][] visited;
+    private int[][] grid;
+
     public int minCost(int[][] grid) {
         int m = grid.length;
-        int n = grid[0].length;
+        this.n = grid[0].length;
+        this.grid = grid;
         
-        // dp[j * 16 + k] stores a 64-bit mask of reachable XORs for column j, block k.
-        long[] prev = new long[n * 16];
-        long[] curr = new long[n * 16];
+        // visited[i][j][xor] flattened or as a 3D boolean array. 
+        // Using boolean[][] of size [m*n][1024] for fast allocation and cache locality.
+        this.visited = new boolean[m * n][1024];
         
-        // Initialize start cell (0, 0)
-        int startVal = grid[0][0];
-        prev[startVal >> 6] |= 1L << (startVal & 63);
+        dfs(0, 0, 0, m);
+        return ans;
+    }
+
+    private void dfs(int r, int c, int xor, int m) {
+        xor ^= grid[r][c];
         
-        // First row: can only move from left
-        for (int j = 1; j < n; j++) {
-            int val = grid[0][j];
-            int colBase = j * 16;
-            int prevColBase = (j - 1) * 16;
-            for (int k = 0; k < 16; k++) {
-                long bits = prev[prevColBase + k];
-                while (bits != 0) {
-                    int v = (k << 6) | Long.numberOfTrailingZeros(bits);
-                    int next = v ^ val;
-                    prev[colBase + (next >> 6)] |= 1L << (next & 63);
-                    bits &= bits - 1;
-                }
-            }
+        // Absolute minimum found, exit immediately
+        if (ans == 0) return; 
+        
+        // Prune if this state has already been explored
+        int id = r * n + c;
+        if (visited[id][xor]) return;
+        visited[id][xor] = true;
+        
+        // Update answer if we reached the bottom-right
+        if (r == m - 1 && c == n - 1) {
+            if (xor < ans) ans = xor;
+            return;
         }
         
-        // Remaining rows
-        for (int i = 1; i < m; i++) {
-            // First column: only from above
-            int val0 = grid[i][0];
-            for (int k = 0; k < 16; k++) curr[k] = 0; // Reset current row
-            for (int k = 0; k < 16; k++) {
-                long bits = prev[k];
-                while (bits != 0) {
-                    int v = (k << 6) | Long.numberOfTrailingZeros(bits);
-                    int next = v ^ val0;
-                    curr[next >> 6] |= 1L << (next & 63);
-                    bits &= bits - 1;
-                }
+        // Optional heuristic: explore the path with smaller current value first
+        if (r + 1 < m && c + 1 < n) {
+            if (grid[r + 1][c] < grid[r][c + 1]) {
+                dfs(r + 1, c, xor, m);
+                dfs(r, c + 1, xor, m);
+            } else {
+                dfs(r, c + 1, xor, m);
+                dfs(r + 1, c, xor, m);
             }
-            
-            // Remaining columns
-            for (int j = 1; j < n; j++) {
-                int val = grid[i][j];
-                int colBase = j * 16;
-                int leftColBase = (j - 1) * 16;
-                
-                // Clear current column block in 'curr'
-                for (int k = 0; k < 16; k++) curr[colBase + k] = 0;
-                
-                // From above (prev[colBase])
-                for (int k = 0; k < 16; k++) {
-                    long bits = prev[colBase + k];
-                    while (bits != 0) {
-                        int v = (k << 6) | Long.numberOfTrailingZeros(bits);
-                        int next = v ^ val;
-                        curr[colBase + (next >> 6)] |= 1L << (next & 63);
-                        bits &= bits - 1;
-                    }
-                }
-                
-                // From left (curr[leftColBase])
-                for (int k = 0; k < 16; k++) {
-                    long bits = curr[leftColBase + k];
-                    while (bits != 0) {
-                        int v = (k << 6) | Long.numberOfTrailingZeros(bits);
-                        int next = v ^ val;
-                        curr[colBase + (next >> 6)] |= 1L << (next & 63);
-                        bits &= bits - 1;
-                    }
-                }
-            }
-            
-            // Swap rows
-            long[] temp = prev;
-            prev = curr;
-            curr = temp;
+        } else if (r + 1 < m) {
+            dfs(r + 1, c, xor, m);
+        } else if (c + 1 < n) {
+            dfs(r, c + 1, xor, m);
         }
-        
-        // Find the minimum reachable XOR in the last column
-        int lastColBase = (n - 1) * 16;
-        for (int v = 0; v < 1024; v++) {
-            if ((prev[lastColBase + (v >> 6)] & (1L << (v & 63))) != 0) {
-                return v;
-            }
-        }
-        return -1;
     }
 }
