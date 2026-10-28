@@ -1,96 +1,63 @@
+import java.util.BitSet;
+
 class Solution {
     public int minCost(int[][] grid) {
         int m = grid.length;
         int n = grid[0].length;
         
-        // We use a 2D array flattened to 1D: dp[col][16] where each long represents 64 bits (XORs)
-        // Size: n columns * 16 longs = n * 16
-        long[] prev = new long[n * 16];
-        long[] curr = new long[n * 16];
+        // 1D array of BitSets. dp[j] stores the reachable XORs for column j.
+        // 1024 bits per column, perfectly packed.
+        BitSet[] dp = new BitSet[n];
+        for (int j = 0; j < n; j++) {
+            dp[j] = new BitSet(1024);
+        }
         
-        // Initialize start cell
-        int startVal = grid[0][0];
-        prev[startVal >> 6] |= 1L << (startVal & 63);
+        // Start cell
+        dp[0].set(grid[0][0]);
         
-        // First row
+        // First row: only from the left
         for (int j = 1; j < n; j++) {
             int val = grid[0][j];
-            int colBase = j * 16;
-            int prevColBase = (j - 1) * 16;
-            for (int k = 0; k < 16; k++) {
-                long bits = prev[prevColBase + k];
-                while (bits != 0) {
-                    int v = (k << 6) | Long.numberOfTrailingZeros(bits);
-                    int next = v ^ val;
-                    prev[colBase + (next >> 6)] |= 1L << (next & 63);
-                    bits &= bits - 1;
-                }
+            BitSet prev = dp[j - 1];
+            BitSet curr = dp[j];
+            for (int v = prev.nextSetBit(0); v >= 0; v = prev.nextSetBit(v + 1)) {
+                curr.set(v ^ val);
             }
         }
         
         // Remaining rows
         for (int i = 1; i < m; i++) {
-            // Clear current row's first column block
-            int firstColBase = 0;
-            for (int k = 0; k < 16; k++) curr[firstColBase + k] = 0;
-            
-            // First column: only from above
+            // First column: only from above (reusing dp[0])
             int val0 = grid[i][0];
-            for (int k = 0; k < 16; k++) {
-                long bits = prev[firstColBase + k];
-                while (bits != 0) {
-                    int v = (k << 6) | Long.numberOfTrailingZeros(bits);
-                    int next = v ^ val0;
-                    curr[firstColBase + (next >> 6)] |= 1L << (next & 63);
-                    bits &= bits - 1;
-                }
+            BitSet temp0 = new BitSet(1024);
+            BitSet prev0 = dp[0];
+            for (int v = prev0.nextSetBit(0); v >= 0; v = prev0.nextSetBit(v + 1)) {
+                temp0.set(v ^ val0);
             }
+            dp[0] = temp0;
             
-            // Remaining columns
+            // Rest of the columns
             for (int j = 1; j < n; j++) {
                 int val = grid[i][j];
-                int colBase = j * 16;
-                int leftColBase = (j - 1) * 16;
+                BitSet temp = new BitSet(1024);
                 
-                // Clear current column block in 'curr'
-                for (int k = 0; k < 16; k++) curr[colBase + k] = 0;
-                
-                // From above (prev[colBase])
-                for (int k = 0; k < 16; k++) {
-                    long bits = prev[colBase + k];
-                    while (bits != 0) {
-                        int v = (k << 6) | Long.numberOfTrailingZeros(bits);
-                        int next = v ^ val;
-                        curr[colBase + (next >> 6)] |= 1L << (next & 63);
-                        bits &= bits - 1;
-                    }
+                // From above: dp[j] currently holds the previous row's values
+                BitSet fromTop = dp[j];
+                for (int v = fromTop.nextSetBit(0); v >= 0; v = fromTop.nextSetBit(v + 1)) {
+                    temp.set(v ^ val);
                 }
                 
-                // From left (curr[leftColBase])
-                for (int k = 0; k < 16; k++) {
-                    long bits = curr[leftColBase + k];
-                    while (bits != 0) {
-                        int v = (k << 6) | Long.numberOfTrailingZeros(bits);
-                        int next = v ^ val;
-                        curr[colBase + (next >> 6)] |= 1L << (next & 63);
-                        bits &= bits - 1;
-                    }
+                // From left: dp[j-1] holds the current row's values
+                BitSet fromLeft = dp[j - 1];
+                for (int v = fromLeft.nextSetBit(0); v >= 0; v = fromLeft.nextSetBit(v + 1)) {
+                    temp.set(v ^ val);
                 }
+                
+                dp[j] = temp; // Replace old column with new
             }
-            
-            // Swap prev and curr
-            long[] temp = prev;
-            prev = curr;
-            curr = temp;
         }
         
-        // Find minimum reachable XOR in the last column
-        int lastColBase = (n - 1) * 16;
-        for (int v = 0; v < 1024; v++) {
-            if ((prev[lastColBase + (v >> 6)] & (1L << (v & 63))) != 0) {
-                return v;
-            }
-        }
-        return -1;
+        // Find the minimum reachable XOR in the last column
+        return dp[n - 1].nextSetBit(0);
     }
 }
