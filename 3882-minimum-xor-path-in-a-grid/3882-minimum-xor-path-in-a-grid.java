@@ -5,17 +5,15 @@ class Solution {
         int m = grid.length;
         int n = grid[0].length;
         
-        // 1D array of BitSets. dp[j] stores the reachable XORs for column j.
-        // 1024 bits per column, perfectly packed.
+        // dp[j] stores the reachable XOR values for the current column j
         BitSet[] dp = new BitSet[n];
         for (int j = 0; j < n; j++) {
             dp[j] = new BitSet(1024);
         }
         
-        // Start cell
         dp[0].set(grid[0][0]);
         
-        // First row: only from the left
+        // First row (only from left)
         for (int j = 1; j < n; j++) {
             int val = grid[0][j];
             BitSet prev = dp[j - 1];
@@ -27,37 +25,34 @@ class Solution {
         
         // Remaining rows
         for (int i = 1; i < m; i++) {
-            // First column: only from above (reusing dp[0])
+            // First column (only from top)
             int val0 = grid[i][0];
-            BitSet temp0 = new BitSet(1024);
             BitSet prev0 = dp[0];
+            BitSet curr0 = new BitSet(1024);
             for (int v = prev0.nextSetBit(0); v >= 0; v = prev0.nextSetBit(v + 1)) {
-                temp0.set(v ^ val0);
+                curr0.set(v ^ val0);
             }
-            dp[0] = temp0;
+            dp[0] = curr0;
             
-            // Rest of the columns
+            // Remaining columns (from top and left)
             for (int j = 1; j < n; j++) {
                 int val = grid[i][j];
-                BitSet temp = new BitSet(1024);
+                BitSet top = dp[j];      // currently holds previous row's states
+                BitSet left = dp[j - 1]; // holds current row's states
+                BitSet curr = new BitSet(1024);
                 
-                // From above: dp[j] currently holds the previous row's values
-                BitSet fromTop = dp[j];
-                for (int v = fromTop.nextSetBit(0); v >= 0; v = fromTop.nextSetBit(v + 1)) {
-                    temp.set(v ^ val);
+                for (int v = top.nextSetBit(0); v >= 0; v = top.nextSetBit(v + 1)) {
+                    curr.set(v ^ val);
+                }
+                for (int v = left.nextSetBit(0); v >= 0; v = left.nextSetBit(v + 1)) {
+                    curr.set(v ^ val);
                 }
                 
-                // From left: dp[j-1] holds the current row's values
-                BitSet fromLeft = dp[j - 1];
-                for (int v = fromLeft.nextSetBit(0); v >= 0; v = fromLeft.nextSetBit(v + 1)) {
-                    temp.set(v ^ val);
-                }
-                
-                dp[j] = temp; // Replace old column with new
+                dp[j] = curr;
             }
         }
         
-        // Find the minimum reachable XOR in the last column
+        // The lowest set bit is the minimum XOR
         return dp[n - 1].nextSetBit(0);
     }
 }
