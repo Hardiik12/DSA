@@ -1,90 +1,75 @@
-import java.util.*;
-
 class Solution {
     public int[] findSubtreeSizes(int[] parent, String s) {
         int n = parent.length;
-        List<Integer>[] children = new ArrayList[n];
-        for (int i = 0; i < n; i++) {
-            children[i] = new ArrayList<>();
-        }
+        char[] str = s.toCharArray();
+        
+        // 1. Build CSR for original tree
+        int[] head = new int[n];
+        int[] next = new int[n];
+        java.util.Arrays.fill(head, -1);
         for (int i = 1; i < n; i++) {
-            children[parent[i]].add(i);
+            int p = parent[i];
+            next[i] = head[p];
+            head[p] = i;
         }
         
         int[] newParent = new int[n];
-        newParent[0] = -1; // root has no parent
+        newParent[0] = -1;
         
-        // Stacks for each character 'a' to 'z'
-        List<Integer>[] charStacks = new ArrayList[26];
-        for (int i = 0; i < 26; i++) {
-            charStacks[i] = new ArrayList<>();
-        }
+        // 2. Iterative DFS to find newParent and record DFS order
+        int[] order = new int[n];
+        // Allocate stack size 2n to safely hold nodes and exit markers
+        int[] stack = new int[2 * n]; 
+        int top = 0;
         
-        // Iterative DFS to avoid StackOverflow
-        Deque<int[]> stack = new ArrayDeque<>();
-        stack.push(new int[]{0, 0}); // {node, state} state 0 = enter, 1 = exit
+        // Stacks for each character 'a' - 'z'
+        int[][] charStacks = new int[26][n];
+        int[] charStackSize = new int[26];
         
-        while (!stack.isEmpty()) {
-            int[] top = stack.pop();
-            int u = top[0];
-            int state = top[1];
+        int idx = 0;
+        stack[top++] = 0; // push root
+        
+        while (top > 0) {
+            int u = stack[--top];
             
-            if (state == 0) {
+            if (u >= 0) {
                 // Entering node u
-                int c = s.charAt(u) - 'a';
-                if (!charStacks[c].isEmpty()) {
-                    newParent[u] = charStacks[c].get(charStacks[c].size() - 1);
+                order[idx++] = u;
+                int c = str[u] - 'a';
+                
+                if (charStackSize[c] > 0) {
+                    newParent[u] = charStacks[c][charStackSize[c] - 1];
                 } else {
                     newParent[u] = parent[u];
                 }
                 
-                charStacks[c].add(u);
-                stack.push(new int[]{u, 1}); // Exit state
+                charStacks[c][charStackSize[c]++] = u;
                 
-                // Push children in reverse order to process left-to-right (optional)
-                for (int i = children[u].size() - 1; i >= 0; i--) {
-                    stack.push(new int[]{children[u].get(i), 0});
+                // Push exit marker (using bitwise NOT to make it negative)
+                stack[top++] = ~u; 
+                
+                // Push children
+                for (int v = head[u]; v != -1; v = next[v]) {
+                    stack[top++] = v;
                 }
             } else {
                 // Exiting node u
-                int c = s.charAt(u) - 'a';
-                charStacks[c].remove(charStacks[c].size() - 1);
+                int node = ~u;
+                int c = str[node] - 'a';
+                charStackSize[c]--;
             }
         }
         
-        // Build the new tree
-        List<Integer>[] newChildren = new ArrayList[n];
-        for (int i = 0; i < n; i++) {
-            newChildren[i] = new ArrayList<>();
-        }
-        for (int i = 1; i < n; i++) {
-            newChildren[newParent[i]].add(i);
-        }
+        // 3. Compute subtree sizes
+        int[] ans = new int[n];
+        java.util.Arrays.fill(ans, 1); // Each node initially counts itself
         
-        // Calculate subtree sizes using post-order DFS iteratively
-        int[] subtreeSize = new int[n];
-        Deque<int[]> stack2 = new ArrayDeque<>();
-        stack2.push(new int[]{0, 0}); // {node, state}
-        
-        while (!stack2.isEmpty()) {
-            int[] top = stack2.pop();
-            int u = top[0];
-            int state = top[1];
-            
-            if (state == 0) {
-                stack2.push(new int[]{u, 1});
-                for (int v : newChildren[u]) {
-                    stack2.push(new int[]{v, 0});
-                }
-            } else {
-                int size = 1;
-                for (int v : newChildren[u]) {
-                    size += subtreeSize[v];
-                }
-                subtreeSize[u] = size;
-            }
+        // Process nodes in reverse DFS order
+        for (int i = n - 1; i > 0; i--) {
+            int u = order[i];
+            ans[newParent[u]] += ans[u];
         }
         
-        return subtreeSize;
+        return ans;
     }
 }
